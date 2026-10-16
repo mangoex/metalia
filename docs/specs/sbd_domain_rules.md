@@ -106,3 +106,65 @@
   2. Genera `IdCCP` bajo formato RFC 4122 donde los primeros 3 caracteres son `CCC` (`CCC` + 5 dígitos hex + `-` + ...).
   3. Valida código postal de origen (Querétaro, ej. `76000` / `76220`), código postal de destino (5 dígitos numéricos) y permiso SCT (`TPAF01`).
   4. Distingue `CFDI_TRASLADO` (flota propia Metalia, subtotal y total $\$0.00\text{ MXN}$) de `CFDI_INGRESO` (transportista tercero con cobro de flete + IVA).
+
+### `RN-10` — Motor Dinámico de Fletes Nacionales (1,239 Municipios)
+* **Entrada**: `estado_destino` (`str`), `municipio_destino` (`str`), `tipo_aplicacion` (`TECHO` o `MURO`), `espesor_pulg` (`str`, ej. `"1.5\""`), `longitud_total_ml` (`Decimal`), `peso_total_kg` (`Decimal`).
+* **Regla de Búsqueda y Cálculo**:
+  1. Se consulta el registro de destino en la matriz nacional oficial (`Fletes 2023`).
+  2. Si el producto es panel aislado con espesor:
+     * Para techo: se obtiene la tarifa unitaria en $\text{\$/ml}$ según columna de espesor ($1'', 1.5'', 2'', 2.5'', 3'', 4'', 5'', 6''$).
+     * Para muro: se obtiene la tarifa unitaria en $\text{\$/ml}$ según columna de espesor de muro ($1.5'', 2'', 2.5'', 3'', 4'', 5'', 6''$).
+     * Flete panel $= \operatorname{round}(\text{longitud\_total\_ml} \times \text{tarifa\_ml}, 2)$.
+  3. Si el producto es acanalado simple, losacero o accesorio (sin tarifa por ml de panel):
+     * Flete por tonelada $= \operatorname{round}\left(\frac{\text{peso\_total\_kg}}{1000} \times \text{costo\_ton\_mxn}, 2\right)$.
+  4. Si no se selecciona municipio específico o es entrega en patio Querétaro (`LAB_PATIO_QRO`), el flete es $\$0.00\text{ MXN}$.
+
+### `RN-11` — Estructura Comercial en Cascada y Opción Técnica Espuma FM Clase I
+* **Entrada**: `precio_lista_base_m2`, `descuento_planta_pct` ($0 \le d \le 0.50$, default $0.34$ en panel, $0.28$ en acanalado), `indirecto_pct` ($0 \le i \le 0.20$, default $0.00$), `margen_utilidad_pct` ($0.10 \le m \le 0.60$, default $0.25$), `es_espuma_fm` (`bool`, default `False`).
+* **Fórmula de Cascada Comercial**:
+  1. Factor Espuma FM:
+     $$\text{Precio Lista Ajustado} = \begin{cases} \text{precio\_lista\_base\_m2} \times 1.07 & \text{si } \text{es\_espuma\_fm} = \text{True} \\ \text{precio\_lista\_base\_m2} & \text{si } \text{es\_espuma\_fm} = \text{False} \end{cases}$$
+  2. Costo Neto de Compra a Planta:
+     $$\text{Costo Neto Planta} = \text{Precio Lista Ajustado} \times (1 - \text{descuento\_planta\_pct})$$
+  3. Costo con Indirecto Operativo:
+     $$\text{Costo con Indirecto} = \text{Costo Neto Planta} \times (1 + \text{indirecto\_pct})$$
+  4. Precio de Venta Base (sin flete):
+     $$\text{Precio Venta sin Flete} = \text{Costo con Indirecto} \times (1 + \text{margen\_utilidad\_pct})$$
+  5. Precio Unitario Final con Flete:
+     $$\text{P.U. Final Venta} = \text{Precio Venta sin Flete} + \text{Flete Unitario por m}^2$$
+
+### `RN-12` — Trazabilidad Financiera y Control de Margen Institucional
+* Toda cotización calcula y expone métricas financieras de gerencia:
+  * `costo_total_material_mxn` $= \sum (\text{Costo con Indirecto}_i \times \text{Cantidad}_i)$
+  * `importe_venta_material_sin_flete_mxn` $= \sum (\text{Precio Venta sin Flete}_i \times \text{Cantidad}_i)$
+  * `utilidad_bruta_mxn` $= \text{importe\_venta\_material\_sin\_flete\_mxn} - \text{costo\_total\_material\_mxn}$
+  * `margen_bruto_pct` $= \frac{\text{utilidad\_bruta\_mxn}}{\text{importe\_venta\_material\_sin\_flete\_mxn}} \times 100$
+* **Alerta de Margen Mínimo**: Si $\text{margen\_bruto\_pct} < 15.0\%$, se activa una bandera de aviso `ALERTA_MARGEN_BAJO` requiriendo autorización de gerencia comercial.
+
+### `RN-13` — Catálogo Técnico de Acanalados Simples y Losacero
+* **Ternium TR-101**: Ancho efectivo $W_{\text{ef}} = 1.008\text{ m}$ ($100.8\text{ cm}$), calibres $20, 22, 24, 26, 28, 30$, peralte $2.5\text{ cm}$, fijación expuesta en cresta.
+* **Ternium TR-72**: Ancho efectivo $W_{\text{ef}} = 0.720\text{ m}$ ($72.0\text{ cm}$), calibres $22, 24, 26, 28, 30, 32$, peralte $2.5\text{ cm}$.
+* **Ternium Losacero 25 / 15**: Ancho efectivo $W_{\text{ef}} = 0.9144\text{ m}$ ($91.44\text{ cm}$), calibres $18, 20, 22, 24$, peralte $6.35\text{ cm}$ (Losacero 25) y $3.81\text{ cm}$ (Losacero 15).
+* A diferencia del panel sándwich, los acanalados no llevan clips ni tapajuntas; usan pijas principales de $1/4'' \times 1''$ y pijas de costura $1/4'' \times 7/8''$.
+
+### `RN-14` — Franjas de Iluminación Natural con Translúcidos Stabilit
+* Modelos: `Acrylit G10` (100% Acrílico con protección GelCoat) y `Poliacryl G5` (Poliéster reforzado con fibra de vidrio).
+* Perfil geométrico troquelado idéntico al panel o acanalado de cubierta (ej. perfil compatible con TR-101 o Multytecho).
+* Entrada: `porcentaje_luz_natural_pct` ($0\%$ a $25\%$, default $0\%$).
+* Si `porcentaje_luz_natural_pct > 0`:
+  * $N_{\text{franjas}} = \max\left(1,\ \operatorname{round}\left(N_{\text{hileras}} \times \frac{\text{porcentaje\_luz\_natural\_pct}}{100}\right)\right)$.
+  * Se sustituyen $N_{\text{franjas}}$ hileras de panel opaco por hileras de lámina translúcida.
+  * El BOM agrega sellador de poliuretano y cinta de butilo adicional para garantizar estanqueidad en los traslapes de las franjas translúcidas.
+
+### `RN-15` — Molduras de Hojalatería con Códigos WizERP y Desarrollo
+* Cada moldura define su desarrollo desplegado en centímetros ($D$) y largo estándar de $3.05\text{ m}$.
+* A partir de bobina o lámina lisa master de $1.22\text{ m}$ ($122\text{ cm}$):
+  $$\text{Tiras Útiles por Lámina} = \left\lfloor \frac{122.0}{D} \right\rfloor$$
+* El costo unitario de moldura se compone de:
+  $$\text{Costo Lámina por Tira} = \frac{\text{Costo Lámina Master}}{\text{Tiras Útiles por Lámina}}$$
+  $$\text{Costo Base Habilitado} = \text{Costo Lámina por Tira} + \text{Costo Maquila Doblez}$$
+* Códigos WizERP integrados:
+  * `CIIPFC2215305152`: Canal Inferior Interior 1.5" ($D=15.1\text{ cm}$, 8 tiras, maquila \$55).
+  * `CIIPFC2220305174`: Canal Inferior Interior 2" ($D=17.4\text{ cm}$, 7 tiras, maquila \$55).
+  * `TGPFC24305244`: Tapagotero estándar Cal. 24 ($D=24.4\text{ cm}$, 5 tiras, maquila \$70).
+  * `CABALLETE_LISO`: Caballete cumbrera $3.05\text{ m}$ ($D=40.0\text{ cm}$, 3 tiras, maquila \$80).

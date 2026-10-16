@@ -116,14 +116,39 @@
           <input id="cli-email" type="email" value="rmendez@constructorabajio.mx" required />
         </div>
         <div class="form-group">
-          <label for="cli-cp">Código Postal de Obra (Cálculo de Flete y Carta Porte)</label>
+          <label for="cli-cp">Código Postal de Obra</label>
           <input id="cli-cp" type="text" value="76220" maxlength="5" required />
         </div>
         <div class="form-group">
           <label for="cli-entrega">Modalidad Logística</label>
-          <select id="cli-entrega">
-            <option value="FLETE_OBRA" selected>Flete Especializado a Obra (Carretera Federal / Local)</option>
+          <select id="cli-entrega" onchange="previewNaveCalculation()">
+            <option value="FLETE_OBRA" selected>Flete Especializado a Obra (Matriz Nacional 2023)</option>
             <option value="LAB_PATIO_QRO">Entrega LAB Patio Metalia Querétaro (Sin Flete)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cli-estado-destino">Estado Destino (Flete Nacional)</label>
+          <select id="cli-estado-destino" onchange="onFreightStateChanged()">
+            <option value="Querétaro" selected>Querétaro</option>
+            <option value="Sinaloa">Sinaloa</option>
+            <option value="Nuevo León">Nuevo León</option>
+            <option value="Jalisco">Jalisco</option>
+            <option value="Guanajuato">Guanajuato</option>
+            <option value="San Luis Potosí">San Luis Potosí</option>
+            <option value="Estado de México">Estado de México</option>
+            <option value="Ciudad de México">Ciudad de México</option>
+            <option value="Puebla">Puebla</option>
+            <option value="Veracruz">Veracruz</option>
+            <option value="Chihuahua">Chihuahua</option>
+            <option value="Sonora">Sonora</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cli-municipio-destino">Municipio / Ciudad Destino (1,239 Destinos)</label>
+          <select id="cli-municipio-destino" onchange="previewNaveCalculation()">
+            <option value="Querétaro" selected>Querétaro</option>
+            <option value="San Juan del Río">San Juan del Río</option>
+            <option value="El Marqués">El Marqués</option>
           </select>
         </div>
       </div>
@@ -171,6 +196,18 @@
               <label for="nave-desperdicio">Factor de Desperdicio (%)</label>
               <input id="nave-desperdicio" type="number" step="1" min="0" max="25" value="6.0" oninput="previewNaveCalculation()" />
             </div>
+            <div class="form-group">
+              <label for="nave-luz-natural">Luz Natural Acrylit G10 (%)</label>
+              <input id="nave-luz-natural" type="number" step="1" min="0" max="30" value="0.0" oninput="previewNaveCalculation()" />
+            </div>
+            <div class="form-group">
+              <label for="nave-desc-planta">Descuento Planta Ternium/Metecno (%)</label>
+              <input id="nave-desc-planta" type="number" step="0.5" min="0" max="60" value="34.0" oninput="previewNaveCalculation()" />
+            </div>
+            <div class="form-group">
+              <label for="nave-margen-utilidad">Margen de Utilidad Metalia (%)</label>
+              <input id="nave-margen-utilidad" type="number" step="0.5" min="5" max="70" value="25.0" oninput="previewNaveCalculation()" />
+            </div>
             <div class="form-group full-width">
               <label for="nave-sku-cubierta">Sistema de Cubierta (Ancho Efectivo 1.000 m / 1.016 m / 0.914 m)</label>
               <select id="nave-sku-cubierta" onchange="previewNaveCalculation()">
@@ -200,6 +237,10 @@
                 <label class="checkbox-item">
                   <input id="chk-instalacion" type="checkbox" checked />
                   Incluir Mano de Obra de Instalación Metalia
+                </label>
+                <label class="checkbox-item">
+                  <input id="chk-espuma-fm" type="checkbox" onchange="previewNaveCalculation()" />
+                  Espuma FM Clase 1 (+7% Precio Lista Planta)
                 </label>
               </div>
             </div>
@@ -252,6 +293,18 @@
             <div class="kpi-card">
               <div class="kpi-label">Peso Total Paneles</div>
               <div id="res-peso-ton" class="kpi-value" style="font-size: 0.95rem;">19.0 Ton</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Luz Natural (Acrylit G10)</div>
+              <div id="res-luz-natural" class="kpi-value" style="font-size: 0.95rem;">0% (0 hileras)</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Flete Nacional Estimado</div>
+              <div id="res-flete-costo" class="kpi-value" style="font-size: 0.95rem;">$0.00 MXN</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Margen Comercial</div>
+              <div id="res-margen-pct" class="kpi-value" style="font-size: 0.95rem;">25.0%</div>
             </div>
           </div>
 
@@ -332,9 +385,14 @@
         </div>
       </div>
 
+      <!-- Alerta de Margen Comercial Bajo (< 15%) -->
+      <div id="q-alerta-margen-banner" class="alert-banner badge-danger hidden" style="margin-bottom: 1.25rem;">
+        ⚠️ ALERTA DE RENTABILIDAD FINANCIERA (RN-12): El margen bruto es inferior al umbral mínimo del 15.00%. Requiere autorización expresa de Dirección Comercial para emitir esta tarifa.
+      </div>
+
       <div class="kpi-strip" style="margin-bottom: 1.25rem;">
         <div class="kpi-card">
-          <div class="kpi-label">Subtotal Neto</div>
+          <div class="kpi-label">Subtotal Material + BOM</div>
           <div id="q-subtotal" class="kpi-value"></div>
         </div>
         <div class="kpi-card">
@@ -352,6 +410,22 @@
         <div class="kpi-card">
           <div class="kpi-label">Unidad Logística Sugerida</div>
           <div id="q-transporte" class="kpi-value" style="font-size: 0.85rem;"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Costo Neto Compra (Planta)</div>
+          <div id="q-costo-neto" class="kpi-value" style="font-size: 0.95rem;"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Venta s/ Flete</div>
+          <div id="q-venta-sin-flete" class="kpi-value" style="font-size: 0.95rem;"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Utilidad Bruta Metalia</div>
+          <div id="q-utilidad-bruta" class="kpi-value" style="font-size: 0.95rem; color: #38bdf8;"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Margen Bruto (%)</div>
+          <div id="q-margen-bruto-pct" class="kpi-value" style="font-size: 0.95rem;"></div>
         </div>
       </div>
 
@@ -492,6 +566,42 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+
+      <!-- Sub-sección Molduras de Taller WizERP (RN-15) -->
+      <div style="margin-top: 2rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
+        <h3 style="margin-bottom: 0.5rem;">Molduras de Taller WizERP (Habilitado sobre Lámina Lisa 1.22 m / 4 pies)</h3>
+        <p class="section-subtitle" style="margin-bottom: 1rem;">
+          Cálculo de aprovechamiento de chapa maestra: <code>Tiras = floor(122 cm / Desarrollo)</code>. Costo unitario = <code>(Costo Chapa $756.06 / Tiras) + Maquila</code>.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Código WizERP</th>
+                <th>Descripción de Moldura</th>
+                <th>Desarrollo Desplegado (cm)</th>
+                <th>Calibre y Acabado</th>
+                <th>Tiras por Lámina 1.22m</th>
+                <th>Costo Maquila / Habilitado</th>
+                <th>Precio Tramo 3.05 m</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in molduras_wizerp %}
+              <tr>
+                <td class="mono"><strong>{{ m.codigo_wizerp }}</strong></td>
+                <td>{{ m.nombre }}</td>
+                <td class="mono"><strong>{{ m.desarrollo_cm }} cm</strong></td>
+                <td class="mono">Cal. {{ m.calibre }} · {{ m.color_acabado }}</td>
+                <td class="mono"><span class="badge badge-stock">{{ m.tiras_por_hoja_122cm }} tiras</span></td>
+                <td class="mono">${{ m.costo_maquila_pza_mxn }} MXN</td>
+                <td class="mono"><strong>${{ m.precio_unitario_305m_mxn }} MXN</strong></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 

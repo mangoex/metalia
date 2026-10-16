@@ -123,6 +123,60 @@ def generate_bom_for_nave(
     if incluye_techo and inp.sku_cubierta and geo.area_cubierta_real_m2 > Decimal(0):
         var_cub = store.get_variante(inp.sku_cubierta)
         fam_cub = store.familias[var_cub.familia_id]
+        # Partida de panel de cubierta opaco
+        hileras_opacas = geo.hileras_opacas if geo.hileras_opacas > 0 else geo.hileras_por_agua
+        cant_cub_opaca = inp.aguas_techo * geo.tramos_por_vertiente * hileras_opacas
+        peso_pza_cub = (geo.largo_tramo_cortado_m * fam_cub.ancho_efectivo_m * var_cub.peso_kg_m2).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        precio_pza_cub = (geo.largo_tramo_cortado_m * fam_cub.ancho_efectivo_m * var_cub.precio_base_m2_mxn).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        items.append(
+            _make_item(
+                tipo_regla="CUBIERTA_OPACA",
+                sku=var_cub.sku,
+                descripcion=f"{var_cub.nombre_comercial} (Tramo {geo.largo_tramo_cortado_m} m)",
+                unidad="PZA",
+                cantidad=cant_cub_opaca,
+                largo_pieza_m=geo.largo_tramo_cortado_m,
+                peso_unitario_kg=peso_pza_cub,
+                precio_unitario_mxn=precio_pza_cub,
+                clave_prod_serv_sat=var_cub.clave_prod_serv_sat,
+            )
+        )
+
+        # Franjas de iluminación translúcida (RN-14: Acrylit G10)
+        if geo.hileras_luz_natural > 0:
+            cant_trans = inp.aguas_techo * geo.tramos_por_vertiente * geo.hileras_luz_natural
+            peso_pza_trans = (geo.largo_tramo_cortado_m * Decimal("2.50")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            precio_pza_trans = (geo.largo_tramo_cortado_m * Decimal("391.11")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            items.append(
+                _make_item(
+                    tipo_regla="TRANSLUCIDO",
+                    sku="ACRYLIT-G10-BLANCO",
+                    descripcion=f"Lámina Translúcida Acrylit G10 T-81 Blanco Lechoso (Tramo {geo.largo_tramo_cortado_m} m)",
+                    unidad="PZA",
+                    cantidad=cant_trans,
+                    largo_pieza_m=geo.largo_tramo_cortado_m,
+                    peso_unitario_kg=peso_pza_trans,
+                    precio_unitario_mxn=precio_pza_trans,
+                    clave_prod_serv_sat="30151500",
+                )
+            )
+            items.append(
+                _make_item(
+                    tipo_regla="SELLADOR",
+                    sku="SELLADOR-POLIURETANO-600ML",
+                    descripcion="Sellador de Poliuretano Dymonic / Sikaflex Salchicha 600 ml (Empalmes Translúcidos)",
+                    unidad="PZA",
+                    cantidad=_ceil_int(Decimal(cant_trans) / Decimal(2)),
+                    largo_pieza_m=None,
+                    peso_unitario_kg=Decimal("0.75"),
+                    precio_unitario_mxn=Decimal("260.00"),
+                    clave_prod_serv_sat="31201600",
+                )
+            )
 
         # 1. RN-06: Pijas principales (8 pijas por m2)
         sku_pija, desc_pija, peso_pija, precio_pija = select_primary_screw_spec(

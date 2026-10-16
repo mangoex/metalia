@@ -108,6 +108,19 @@ def calculate_nave_geometry(
         n_hileras_totales = inp.aguas_techo * n_hileras_agua
         n_piezas_cub = inp.aguas_techo * k * n_hileras_agua
 
+        # RN-14: Franjas de Iluminación Natural con Translúcidos
+        if inp.porcentaje_luz_natural_pct > Decimal("0.0"):
+            hileras_luz = int((Decimal(n_hileras_agua) * (inp.porcentaje_luz_natural_pct / Decimal(100))).to_integral_value(rounding=ROUND_HALF_UP))
+            hileras_luz = max(1, min(hileras_luz, n_hileras_agua))
+            hileras_opacas = n_hileras_agua - hileras_luz
+            area_luz_m2 = (Decimal(inp.aguas_techo * hileras_luz) * lv_exact * w_ef_cub).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+        else:
+            hileras_luz = 0
+            hileras_opacas = n_hileras_agua
+            area_luz_m2 = Decimal("0.00")
+
         area_planta = (inp.largo_nave_m * inp.ancho_nave_m).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
@@ -135,6 +148,9 @@ def calculate_nave_geometry(
         traslape_aplicado = Decimal("0.0000")
         n_hileras_agua = 0
         n_hileras_totales = 0
+        hileras_luz = 0
+        hileras_opacas = 0
+        area_luz_m2 = Decimal("0.00")
         n_piezas_cub = 0
         area_planta = (inp.largo_nave_m * inp.ancho_nave_m).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
@@ -208,6 +224,9 @@ def calculate_nave_geometry(
         ancho_efectivo_cubierta_m=w_ef_cub,
         hileras_por_agua=n_hileras_agua,
         hileras_totales_cubierta=n_hileras_totales,
+        hileras_luz_natural=hileras_luz,
+        hileras_opacas=hileras_opacas,
+        area_luz_natural_m2=area_luz_m2,
         piezas_totales_cubierta=n_piezas_cub,
         area_planta_m2=area_planta,
         area_cubierta_real_m2=area_cub_real,

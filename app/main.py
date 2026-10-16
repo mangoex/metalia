@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
             context={
                 "familias": list(store.familias.values()),
                 "variantes": list(store.variantes.values()),
+                "molduras_wizerp": store.molduras_wizerp,
                 "inventario_piso": store.inventario_piso,
             },
         )

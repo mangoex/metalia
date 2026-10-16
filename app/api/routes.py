@@ -20,6 +20,11 @@ from app.models.domain import (
     NaveGeometryInput,
 )
 from app.services.bom_engine import generate_bom_for_nave
+from app.services.freight_service import (
+    calculate_destination_freight,
+    get_destinations_for_state,
+    get_freight_states,
+)
 from app.services.geometry_engine import calculate_nave_geometry
 from app.services.inventory_service import (
     evaluate_direct_line_stock,
@@ -27,6 +32,7 @@ from app.services.inventory_service import (
 )
 from app.services.logistics_carta_porte import build_and_validate_carta_porte_31
 from app.services.pricing_quote_service import (
+    calculate_commercial_cascade,
     check_and_update_quote_validity,
     create_direct_quote,
     create_nave_quote,
@@ -65,20 +71,79 @@ class QuoteCartaPorteInput(BaseModel):
     monto_flete_mxn: Decimal = Decimal("0.00")
 
 
+class CalculateFreightInput(BaseModel):
+    estado: str
+    municipio: str
+    tipo_aplicacion: str = "TECHO"
+    espesor_pulg: str | None = None
+    longitud_total_ml: Decimal = Decimal("0.00")
+    peso_total_kg: Decimal = Decimal("0.00")
+
+
+class PricingCascadeInput(BaseModel):
+    precio_lista_base_m2: Decimal = Field(gt=Decimal(0))
+    es_espuma_fm: bool = False
+    descuento_planta_pct: Decimal = Field(default=Decimal("0.34"), ge=Decimal(0), le=Decimal("0.90"))
+    indirecto_pct: Decimal = Field(default=Decimal("0.05"), ge=Decimal(0), le=Decimal("0.50"))
+    margen_utilidad_pct: Decimal = Field(default=Decimal("0.25"), ge=Decimal("0.05"), le=Decimal("1.00"))
+    flete_unitario_m2: Decimal = Decimal("0.00")
+
+
 def _get_store(request: Request) -> MetaliaInMemoryStore:
     return request.app.state.store
 
 
 @router.get("/catalog")
 def get_catalog_and_inventory(request: Request):
-    """Retorna el catálogo técnico paramétrico y la matriz de existencias en piso en Querétaro."""
+    """Retorna el catálogo técnico paramétrico, molduras WizERP y la matriz de existencias en piso en Querétaro."""
     store = _get_store(request)
     return {
         "familias": list(store.familias.values()),
         "variantes": list(store.variantes.values()),
+        "molduras_wizerp": store.molduras_wizerp,
         "inventario_piso": store.inventario_piso,
         "ordenes_corte": store.ordenes_corte,
     }
+
+
+@router.get("/fletes/estados")
+def api_get_freight_states():
+    """Retorna la lista de los 33 estados disponibles en la matriz de fletes 2023 (RN-10)."""
+    estados = get_freight_states()
+    return {"total": len(estados), "estados": estados}
+
+
+@router.get("/fletes/destinos")
+def api_get_freight_destinations(estado: str):
+    """Retorna los municipios y ciudades con tarifa de flete para un estado (RN-10)."""
+    destinos = get_destinations_for_state(estado)
+    return {"estado": estado, "total": len(destinos), "destinos": destinos}
+
+
+@router.post("/fletes/calculate")
+def api_calculate_freight(inp: CalculateFreightInput):
+    """Calcula el costo del flete nacional según matriz 2023 por ml o tonelada (RN-10)."""
+    return calculate_destination_freight(
+        estado=inp.estado,
+        municipio=inp.municipio,
+        tipo_aplicacion=inp.tipo_aplicacion,
+        espesor_pulg=inp.espesor_pulg,
+        longitud_total_ml=inp.longitud_total_ml,
+        peso_total_kg=inp.peso_total_kg,
+    )
+
+
+@router.post("/pricing/cascade")
+def api_calculate_pricing_cascade(inp: PricingCascadeInput):
+    """Calcula la cascada comercial de precios, costo neto, utilidad bruta y margen (RN-11, RN-12)."""
+    return calculate_commercial_cascade(
+        precio_lista_base_m2=inp.precio_lista_base_m2,
+        es_espuma_fm=inp.es_espuma_fm,
+        descuento_planta_pct=inp.descuento_planta_pct,
+        indirecto_pct=inp.indirecto_pct,
+        margen_utilidad_pct=inp.margen_utilidad_pct,
+        flete_unitario_m2=inp.flete_unitario_m2,
+    )
 
 
 @router.post("/cpq/preview-nave")

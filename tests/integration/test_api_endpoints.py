@@ -209,3 +209,139 @@ def test_web_ui_renders_accessible_cpq_portal():
     assert "Metalia" in html
     assert "Existencias en Piso Hoy en Querétaro" in html
     assert "Carta Porte 3.1" in html
+
+
+def test_api_freight_endpoints_and_cascade_calculation():
+    """Verifica los endpoints de flete nacional (estados, destinos, cálculo) y cascada comercial."""
+    from app.main import create_app
+
+    client = TestClient(create_app())
+
+    # 1. Obtener estados
+    res_est = client.get("/api/v1/fletes/estados")
+    assert res_est.status_code == 200
+    est_data = res_est.json()
+    assert est_data["total"] >= 32
+    assert "Sinaloa" in est_data["estados"]
+    assert "Querétaro" in est_data["estados"]
+
+    # 2. Obtener destinos para Sinaloa
+    res_dest = client.get("/api/v1/fletes/destinos?estado=Sinaloa")
+    assert res_dest.status_code == 200
+    dest_data = res_dest.json()
+    assert dest_data["total"] > 0
+    assert any("Culiac" in d for d in dest_data["destinos"])
+
+    # 3. Calcular flete por metro lineal (Panel Galvatecho 1.5" a Culiacán)
+    res_calc_ml = client.post(
+        "/api/v1/fletes/calculate",
+        json={
+            "estado": "Sinaloa",
+            "municipio": "Culiacán",
+            "tipo_aplicacion": "TECHO",
+            "espesor_pulg": "1.5",
+            "longitud_total_ml": "1012.80",
+            "peso_total_kg": "10000.00",
+        },
+    )
+    assert res_calc_ml.status_code == 200
+    calc_ml = res_calc_ml.json()
+    assert calc_ml["metodo_calculo"] == "TARIFA_POR_METRO_LINEAL"
+    assert float(calc_ml["tarifa_unitaria"]) == 77.5619
+    assert float(calc_ml["costo_flete_mxn"]) == 78554.69
+
+    # 4. Calcular flete por tonelada (acanalados/accesorios a Monterrey)
+    res_calc_ton = client.post(
+        "/api/v1/fletes/calculate",
+        json={
+            "estado": "Nuevo León",
+            "municipio": "Monterrey",
+            "tipo_aplicacion": "TECHO",
+            "espesor_pulg": None,
+            "longitud_total_ml": "0.00",
+            "peso_total_kg": "5000.00",
+        },
+    )
+    assert res_calc_ton.status_code == 200
+    calc_ton = res_calc_ton.json()
+    assert calc_ton["metodo_calculo"] == "RECUPERACION_POR_TONELADA"
+    assert float(calc_ton["costo_flete_mxn"]) > 0
+
+    # 5. Calcular cascada comercial estándar
+    res_casc = client.post(
+        "/api/v1/pricing/cascade",
+        json={
+            "precio_lista_base_m2": "748.00",
+            "es_espuma_fm": False,
+            "descuento_planta_pct": "0.34",
+            "indirecto_pct": "0.05",
+            "margen_utilidad_pct": "0.25",
+            "flete_unitario_m2": "77.56",
+        },
+    )
+    assert res_casc.status_code == 200
+    casc = res_casc.json()
+    assert float(casc["costo_neto_compra_m2"]) == 493.68
+    assert float(casc["costo_con_indirecto_m2"]) == 518.36
+    assert float(casc["precio_venta_sin_flete_m2"]) == 647.95
+    assert casc["alerta_margen_bajo"] is False
+
+    # 6. Calcular cascada con espuma FM (+7%) y margen bajo (<15%)
+    res_casc_fm = client.post(
+        "/api/v1/pricing/cascade",
+        json={
+            "precio_lista_base_m2": "748.00",
+            "es_espuma_fm": True,
+            "descuento_planta_pct": "0.34",
+            "indirecto_pct": "0.05",
+            "margen_utilidad_pct": "0.10",  # Margen bajo
+            "flete_unitario_m2": "0.00",
+        },
+    )
+    assert res_casc_fm.status_code == 200
+    casc_fm = res_casc_fm.json()
+    assert float(casc_fm["precio_lista_ajustado_m2"]) == 800.36
+    assert casc_fm["alerta_margen_bajo"] is True
+
+
+def test_api_nave_quote_with_national_freight_and_cascade():
+    """Verifica la creación de cotización CPQ con flete a Culiacán y desglose financiero."""
+    from app.main import create_app
+
+    client = TestClient(create_app())
+    payload = {
+        "cliente_nombre": "Agropecuario del Pacífico",
+        "cliente_empresa": "Almacenes Culiacán",
+        "cliente_whatsapp": "6671234567",
+        "cliente_email": "ventas@almacenesculiacan.com",
+        "largo_nave_m": "40.0",
+        "ancho_nave_m": "25.0",
+        "altura_muro_m": "6.0",
+        "aguas_techo": 2,
+        "pendiente_pct": "5.0",
+        "area_huecos_m2": "24.0",
+        "alcance_obra": "NAVE_COMPLETA",
+        "sku_cubierta": "GALVATECHO-15-2626-ARENA",
+        "sku_muro": "MULTYMURO-15-2626-ARENA",
+        "porcentaje_luz_natural_pct": "10.0",
+        "descuento_planta_pct": "0.34",
+        "margen_utilidad_pct": "0.25",
+        "es_espuma_fm": False,
+        "estado_destino": "Sinaloa",
+        "municipio_destino": "Culiacán",
+        "tipo_entrega": "FLETE_OBRA",
+    }
+    res = client.post("/api/v1/quotes/nave", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["estado_destino"] == "Sinaloa"
+    assert data["municipio_destino"] == "Culiacán"
+    assert float(data["costo_total_material_mxn"]) > 0
+    assert float(data["importe_venta_sin_flete_mxn"]) > 0
+    assert float(data["utilidad_bruta_mxn"]) > 0
+    assert float(data["margen_bruto_pct"]) >= 15.0
+    assert data["alerta_margen_bajo"] is False
+    # Validar que existan partidas de Acrylit G10 y flete
+    skus = [p["sku"] for p in data["partidas"]]
+    assert any("ACRYLIT" in sku for sku in skus)
+    assert any("FLETE" in sku for sku in skus)

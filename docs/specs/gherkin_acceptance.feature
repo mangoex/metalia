@@ -53,3 +53,34 @@ Característica: Sistema Web CPQ, Explosión BOM, Inventario Dimensional y Carta
     Entonces el sistema valida que PesoBrutoTotal sea exactamente 11345.00 kg igual a la suma de PesoEnKg de las mercancías
     Y genera un identificador IdCCP válido bajo el estándar RFC 4122 que inicia con los caracteres "CCC"
     Y verifica el código de permiso SCT "TPAF01" y los códigos postales de origen y destino
+
+  Escenario: HU-08 Cotización de flete dinámico nacional por municipio y espesor de panel
+    Dado que el usuario cotiza 160 piezas de 6.33 m de Galvatecho 1.5 pulgadas para entrega en "Sinaloa - Culiacán"
+    Cuando se calcula el costo de flete con la matriz nacional Fletes 2023
+    Entonces el sistema consulta la tarifa oficial de 1.5 pulgadas para Culiacán (46.2347 $/ml)
+    Y calcula exactamente 1012.80 metros lineales multiplicados por 46.2347 $/ml
+    Y arroja un importe de flete de $46,826.51 MXN desglosado en la cotización
+
+  Escenario: HU-09 Aplicación de fórmula en cascada comercial con margen y opción de Espuma FM (+7%)
+    Dado un panel Galvatecho 1.5 pulgadas con precio de lista base de $706.82 MXN/m2
+    Y el cliente solicita certificación Factory Mutual Clase I retardante al fuego
+    Y el vendedor aplica un descuento de planta de 34% y un margen de utilidad de 25%
+    Cuando se calcula el precio en cascada comercial
+    Entonces el precio de lista ajustado con +7% de espuma FM es $756.30 MXN/m2
+    Y el costo neto de compra es $499.16 MXN/m2
+    Y el precio de venta antes de flete con 25% de margen es $623.95 MXN/m2
+    Y la utilidad bruta calculada es $124.79 MXN/m2 con margen del 20.0% sobre venta
+
+  Escenario: HU-10 Cotización de nave mixta con franjas de luz natural Acrylit G10
+    Dado el diseño de una nave de 40 m x 25 m con 40 hileras de cubierta
+    Cuando el proyectista especifica un 10% de iluminación natural con lámina translúcida Acrylit G10
+    Entonces el sistema sustituye automáticamente 4 hileras de panel opaco por 4 hileras de Acrylit G10
+    Y mantiene la modulación geométrica sin traslapes fuera de eje
+    Y calcula la superficie translúcida de 100.12 m2 con su costo específico y accesorios de sellado
+
+  Escenario: HU-11 Despiece de entrepiso Losacero y molduras con códigos WizERP
+    Dado un proyecto que requiere entrepiso metálico Losacero 25 Calibre 22 y molduras de remate
+    Cuando se capturan las partidas de Losacero y canales interiores de desplante
+    Entonces el sistema aplica el ancho efectivo de 0.9144 m para Losacero 25
+    Y asigna el código WizERP "CIIPFC2215305152" para el canal inferior de 1.5 pulgadas
+    Y calcula el rendimiento de 8 tiras útiles por lámina de 1.22 m con costo de maquila de $55.00 MXN por tramo

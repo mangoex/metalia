@@ -100,6 +100,22 @@ function renderNaveSvgDiagram(geo, inp) {
     gridLinesSvg += `<line x1="${gridLeft}" y1="${midGridY}" x2="${gridLeft + gridWidth}" y2="${midGridY}" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4,3" />`;
   }
 
+  // Franjas de iluminación natural translúcida Acrylit G10 (RN-14)
+  let skylightsSvg = "";
+  if (geo.hileras_luz_natural > 0) {
+    const skylightCols = Math.min(numLines - 1, Math.max(1, Math.round((geo.hileras_luz_natural / geo.hileras_totales_cubierta) * numLines)));
+    const step = Math.max(2, Math.floor(numLines / skylightCols));
+    for (let c = 1; c < numLines; c += step) {
+      const colX = gridLeft + (gridWidth / numLines) * c;
+      const colW = gridWidth / numLines;
+      skylightsSvg += `<rect x="${colX}" y="${gridTop}" width="${colW}" height="${gridHeight}" fill="#fef08a" opacity="0.45" stroke="#facc15" stroke-width="1" stroke-dasharray="2,2" />`;
+    }
+  }
+
+  const descCubierta = geo.hileras_luz_natural > 0
+    ? `Cubierta: ${geo.piezas_totales_cubierta} pzas (${geo.hileras_opacas} opacas + ${geo.hileras_luz_natural} Acrylit G10)`
+    : `Total Cubierta: ${geo.piezas_totales_cubierta} pzas (${geo.area_cubierta_con_desperdicio_m2} m² c/desp.)`;
+
   svg.innerHTML = `
     <!-- Fondo Técnico -->
     <rect x="0" y="0" width="680" height="220" fill="#080c14" rx="8" />
@@ -127,14 +143,16 @@ function renderNaveSvgDiagram(geo, inp) {
 
     <!-- Planta de Cubierta -->
     <rect x="${gridLeft}" y="${gridTop}" width="${gridWidth}" height="${gridHeight}" fill="#0f172a" stroke="#f97316" stroke-width="2" />
+    ${skylightsSvg}
     ${gridLinesSvg}
-    <text x="${gridLeft + gridWidth / 2}" y="198" text-anchor="middle" fill="#38bdf8" font-size="12" font-family="monospace">
-      Total Cubierta: ${geo.piezas_totales_cubierta} pzas (${geo.area_cubierta_con_desperdicio_m2} m² c/desp.)
+    <text x="${gridLeft + gridWidth / 2}" y="198" text-anchor="middle" fill="#38bdf8" font-size="11" font-family="monospace">
+      ${descCubierta}
     </text>
   `;
 }
 
 async function previewNaveCalculation() {
+  const luzNatural = parseFloat(document.getElementById("nave-luz-natural")?.value) || 0;
   const payload = {
     largo_nave_m: document.getElementById("nave-largo").value,
     ancho_nave_m: document.getElementById("nave-ancho").value,
@@ -146,6 +164,7 @@ async function previewNaveCalculation() {
     sku_cubierta: document.getElementById("nave-sku-cubierta").value,
     sku_muro: document.getElementById("nave-sku-muro").value,
     desperdicio_cubierta_pct: document.getElementById("nave-desperdicio").value,
+    porcentaje_luz_natural_pct: luzNatural,
   };
 
   const resp = await fetch("/api/v1/cpq/preview-nave", {
@@ -167,6 +186,47 @@ async function previewNaveCalculation() {
   document.getElementById("res-piezas-muro").textContent = `${geo.piezas_totales_muro} pzas (Ancho ef. ${geo.ancho_efectivo_muro_m} m)`;
   document.getElementById("res-valor-r").textContent = `R-${geo.valor_r_cubierta}`;
   document.getElementById("res-peso-ton").textContent = `${geo.peso_total_paneles_ton} Ton (${geo.peso_total_paneles_kg} kg)`;
+
+  if (document.getElementById("res-luz-natural")) {
+    document.getElementById("res-luz-natural").textContent = `${geo.porcentaje_luz_natural_pct || luzNatural}% (${geo.hileras_luz_natural || 0} hileras)`;
+  }
+  if (document.getElementById("res-margen-pct")) {
+    const margenVal = document.getElementById("nave-margen-utilidad")?.value || 25;
+    document.getElementById("res-margen-pct").textContent = `${margenVal}%`;
+  }
+
+  // Estimación de flete dinámico
+  const tipoEntrega = document.getElementById("cli-entrega")?.value;
+  const estadoDest = document.getElementById("cli-estado-destino")?.value;
+  const munDest = document.getElementById("cli-municipio-destino")?.value;
+  const fleteEl = document.getElementById("res-flete-costo");
+  if (fleteEl) {
+    if (tipoEntrega === "FLETE_OBRA" && estadoDest && munDest) {
+      try {
+        const mlCub = (geo.piezas_totales_cubierta || 0) * (parseFloat(geo.largo_tramo_cortado_m) || 0);
+        const fleteResp = await fetch("/api/v1/fletes/calculate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            estado: estadoDest,
+            municipio: munDest,
+            tipo_aplicacion: "TECHO",
+            espesor_pulg: "1.5",
+            longitud_total_ml: mlCub.toFixed(2),
+            peso_total_kg: geo.peso_total_paneles_kg,
+          }),
+        });
+        if (fleteResp.ok) {
+          const fData = await fleteResp.json();
+          fleteEl.textContent = `$${parseFloat(fData.costo_flete_mxn).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+        }
+      } catch (err) {
+        console.warn("Flete lookup warn:", err);
+      }
+    } else {
+      fleteEl.textContent = "$0.00 MXN (Patio QRO)";
+    }
+  }
 
   const slopeAlert = document.getElementById("slope-alert-banner");
   if (geo.alerta_pendiente_minima) {
@@ -211,6 +271,12 @@ async function generateFormalNaveQuote(event) {
     sku_cubierta: document.getElementById("nave-sku-cubierta").value,
     sku_muro: document.getElementById("nave-sku-muro").value,
     desperdicio_cubierta_pct: document.getElementById("nave-desperdicio").value,
+    porcentaje_luz_natural_pct: parseFloat(document.getElementById("nave-luz-natural")?.value) || 0,
+    descuento_planta_pct: (parseFloat(document.getElementById("nave-desc-planta")?.value) || 34) / 100,
+    margen_utilidad_pct: (parseFloat(document.getElementById("nave-margen-utilidad")?.value) || 25) / 100,
+    es_espuma_fm: document.getElementById("chk-espuma-fm")?.checked || false,
+    estado_destino: document.getElementById("cli-estado-destino")?.value || null,
+    municipio_destino: document.getElementById("cli-municipio-destino")?.value || null,
     incluir_bom_accesorios: document.getElementById("chk-bom").checked,
     incluir_estructura_polin: document.getElementById("chk-polin").checked,
     incluir_instalacion: document.getElementById("chk-instalacion").checked,
@@ -310,6 +376,28 @@ function renderGeneratedQuote(quote) {
     `
     )
     .join("");
+
+  // Desglose financiero comercial en cascada (RN-11, RN-12)
+  if (document.getElementById("q-costo-neto")) {
+    document.getElementById("q-costo-neto").textContent = `$${parseFloat(quote.costo_total_material_mxn || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+  }
+  if (document.getElementById("q-venta-sin-flete")) {
+    document.getElementById("q-venta-sin-flete").textContent = `$${parseFloat(quote.importe_venta_sin_flete_mxn || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+  }
+  if (document.getElementById("q-utilidad-bruta")) {
+    document.getElementById("q-utilidad-bruta").textContent = `$${parseFloat(quote.utilidad_bruta_mxn || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+  }
+  if (document.getElementById("q-margen-bruto-pct")) {
+    document.getElementById("q-margen-bruto-pct").textContent = `${quote.margen_bruto_pct || 0}%`;
+  }
+  const alertaBanner = document.getElementById("q-alerta-margen-banner");
+  if (alertaBanner) {
+    if (quote.alerta_margen_bajo) {
+      alertaBanner.classList.remove("hidden");
+    } else {
+      alertaBanner.classList.add("hidden");
+    }
+  }
 
   section.scrollIntoView({ behavior: "smooth" });
   refreshCatalogAndInventory();
@@ -413,7 +501,43 @@ async function refreshCatalogAndInventory() {
     .join("");
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+async function onFreightStateChanged() {
+  const estado = document.getElementById("cli-estado-destino")?.value;
+  const munSelect = document.getElementById("cli-municipio-destino");
+  if (!estado || !munSelect) return;
+  try {
+    const resp = await fetch(`/api/v1/fletes/destinos?estado=${encodeURIComponent(estado)}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.destinos && data.destinos.length > 0) {
+      munSelect.innerHTML = data.destinos.map((d) => `<option value="${d}">${d}</option>`).join("");
+      previewNaveCalculation();
+    }
+  } catch (err) {
+    console.warn("Error cargando destinos de flete:", err);
+  }
+}
+
+async function initFreightDropdowns() {
+  const estSelect = document.getElementById("cli-estado-destino");
+  if (!estSelect) return;
+  try {
+    const resp = await fetch("/api/v1/fletes/estados");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.estados && data.estados.length > 0) {
+      estSelect.innerHTML = data.estados
+        .map((e) => `<option value="${e}" ${e === "Querétaro" ? "selected" : ""}>${e}</option>`)
+        .join("");
+      await onFreightStateChanged();
+    }
+  } catch (err) {
+    console.warn("Error inicializando fletes:", err);
+  }
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+  await initFreightDropdowns();
   previewNaveCalculation();
   evaluateDirectDespieceStock();
 });

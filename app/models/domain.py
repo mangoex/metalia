@@ -10,7 +10,7 @@ Entidades nucleares del Modelo de Datos Dimensional de Metalia CPQ (SBD Sección
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -111,6 +111,25 @@ class ReglaExplosionBOM(BaseModel):
     es_obligatorio: bool = True
 
 
+class MolduraWizERP(BaseModel):
+    """Moldura de Taller con código WizERP, desarrollo en cm y costo de habilitado (RN-15)."""
+
+    codigo_wizerp: str
+    descripcion: str
+    desarrollo_cm: Decimal
+    tiras_por_lamina: int
+    costo_maquila_pza: Decimal
+    costo_lamina_c22: Decimal = Decimal("756.06")
+    costo_lamina_c24: Decimal = Decimal("564.64")
+
+    @property
+    def costo_unitario_habilitado(self) -> Decimal:
+        if self.tiras_por_lamina <= 0:
+            return self.costo_maquila_pza
+        costo_tira = self.costo_lamina_c22 / Decimal(self.tiras_por_lamina)
+        return (costo_tira + self.costo_maquila_pza).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
 class SlopeFactorResult(BaseModel):
     """Resultado de RN-01: Factor trigonométrico de pendiente y alerta mínima."""
 
@@ -135,10 +154,16 @@ class NaveGeometryInput(BaseModel):
     desperdicio_cubierta_pct: Decimal = Decimal("6.0")
     desperdicio_muro_pct: Decimal = Decimal("6.0")
     rolado_en_sitio: bool = False
+    porcentaje_luz_natural_pct: Decimal = Field(default=Decimal("0.0"), ge=Decimal("0.0"), le=Decimal("30.0"))
+    descuento_planta_pct: Decimal = Field(default=Decimal("0.34"), ge=Decimal("0.0"), le=Decimal("0.60"))
+    margen_utilidad_pct: Decimal = Field(default=Decimal("0.25"), ge=Decimal("0.05"), le=Decimal("0.70"))
+    es_espuma_fm: bool = False
+    estado_destino: str | None = None
+    municipio_destino: str | None = None
 
 
 class NaveGeometryResult(BaseModel):
-    """Resultado del cálculo geométrico de cubierta y muros (RN-01 a RN-04)."""
+    """Resultado del cálculo geométrico de cubierta y muros (RN-01 a RN-04, RN-14)."""
 
     factor_pendiente: Decimal
     alerta_pendiente_minima: bool
@@ -152,6 +177,9 @@ class NaveGeometryResult(BaseModel):
     ancho_efectivo_cubierta_m: Decimal
     hileras_por_agua: int
     hileras_totales_cubierta: int
+    hileras_luz_natural: int = 0
+    hileras_opacas: int = 0
+    area_luz_natural_m2: Decimal = Decimal("0.00")
     piezas_totales_cubierta: int
     area_planta_m2: Decimal
     area_cubierta_real_m2: Decimal
@@ -197,6 +225,10 @@ class BOMExplosionResult(BaseModel):
     items: list[BOMItemResult]
     peso_total_accesorios_kg: Decimal
     importe_total_accesorios_mxn: Decimal
+
+    @property
+    def partidas(self) -> list[BOMItemResult]:
+        return self.items
 
 
 class StockAllocationResult(BaseModel):
@@ -276,6 +308,14 @@ class CotizacionProyecto(BaseModel):
     peso_bruto_total_kg: Decimal
     peso_bruto_total_ton: Decimal
     unidad_transporte_sugerida: str
+    costo_total_material_mxn: Decimal = Decimal("0.00")
+    importe_venta_sin_flete_mxn: Decimal = Decimal("0.00")
+    utilidad_bruta_mxn: Decimal = Decimal("0.00")
+    margen_bruto_pct: Decimal = Decimal("0.00")
+    alerta_margen_bajo: bool = False
+    estado_destino: str | None = None
+    municipio_destino: str | None = None
+    es_espuma_fm: bool = False
     subtotal_mxn: Decimal
     iva_mxn: Decimal
     total_mxn: Decimal
@@ -308,7 +348,7 @@ class CreateDirectQuoteRequest(BaseModel):
 
 
 class CreateNaveQuoteRequest(BaseModel):
-    """Solicitud para generar cotización en Modo Proyecto / Nave Industrial (HU-01, HU-03, HU-04)."""
+    """Solicitud para generar cotización en Modo Proyecto / Nave Industrial (HU-01, HU-03, HU-04, HU-08..HU-10)."""
 
     cliente_nombre: str
     cliente_empresa: str
@@ -326,6 +366,12 @@ class CreateNaveQuoteRequest(BaseModel):
     sku_muro: str | None = "MULTYMURO-15-2626-ARENA"
     desperdicio_cubierta_pct: Decimal = Decimal("6.0")
     desperdicio_muro_pct: Decimal = Decimal("6.0")
+    porcentaje_luz_natural_pct: Decimal = Field(default=Decimal("0.0"), ge=Decimal("0.0"), le=Decimal("30.0"))
+    descuento_planta_pct: Decimal = Field(default=Decimal("0.34"), ge=Decimal("0.0"), le=Decimal("0.60"))
+    margen_utilidad_pct: Decimal = Field(default=Decimal("0.25"), ge=Decimal("0.05"), le=Decimal("0.70"))
+    es_espuma_fm: bool = False
+    estado_destino: str | None = None
+    municipio_destino: str | None = None
     incluir_bom_accesorios: bool = True
     incluir_estructura_polin: bool = False
     incluir_instalacion: bool = False
@@ -378,6 +424,7 @@ class MetaliaInMemoryStore:
         self.inventario_piso: list[InventarioDimensionalPiso] = []
         self.cotizaciones: dict[str, CotizacionProyecto] = {}
         self.ordenes_corte: list[CutOrderResult] = []
+        self.molduras_wizerp: list[MolduraWizERP] = []
         self._quote_seq: int = 1
         self._cut_seq: int = 1
         self._lot_seq: int = 100
@@ -517,6 +564,62 @@ def create_default_metalia_store() -> MetaliaInMemoryStore:
             traslape_transversal_min_m=Decimal("0.150"),
             desperdicio_default_pct=Decimal("10.0"),
         ),
+        ProductoFamilia(
+            id="LOSACERO_25",
+            codigo_familia="ENTREPISO_LOSACERO",
+            marca="Ternium",
+            modelo="Losacero 25",
+            mecanismo_fijacion="EXPUESTA_TRASLAPE",
+            ancho_efectivo_m=Decimal("0.9144"),
+            pendiente_minima_pct=Decimal("0.0"),
+            largo_min_fabricacion_m=Decimal("2.00"),
+            largo_max_plataforma_m=Decimal("12.00"),
+            largo_max_linea_m=Decimal("12.00"),
+            traslape_transversal_min_m=Decimal("0.000"),
+            desperdicio_default_pct=Decimal("5.0"),
+        ),
+        ProductoFamilia(
+            id="TR_101",
+            codigo_familia="LAMINA_ACANALADA",
+            marca="Ternium",
+            modelo="Lámina Trapezoidal TR-101",
+            mecanismo_fijacion="EXPUESTA_TRASLAPE",
+            ancho_efectivo_m=Decimal("1.008"),
+            pendiente_minima_pct=Decimal("5.0"),
+            largo_min_fabricacion_m=Decimal("2.00"),
+            largo_max_plataforma_m=Decimal("12.00"),
+            largo_max_linea_m=Decimal("12.00"),
+            traslape_transversal_min_m=Decimal("0.200"),
+            desperdicio_default_pct=Decimal("10.0"),
+        ),
+        ProductoFamilia(
+            id="TR_72",
+            codigo_familia="LAMINA_ACANALADA",
+            marca="Ternium",
+            modelo="Lámina Ondulada TR-72",
+            mecanismo_fijacion="EXPUESTA_TRASLAPE",
+            ancho_efectivo_m=Decimal("0.720"),
+            pendiente_minima_pct=Decimal("5.0"),
+            largo_min_fabricacion_m=Decimal("2.00"),
+            largo_max_plataforma_m=Decimal("12.00"),
+            largo_max_linea_m=Decimal("12.00"),
+            traslape_transversal_min_m=Decimal("0.200"),
+            desperdicio_default_pct=Decimal("10.0"),
+        ),
+        ProductoFamilia(
+            id="ACRYLIT_G10",
+            codigo_familia="TRANSLUCIDO",
+            marca="Stabilit",
+            modelo="Lámina Translúcida Acrylit G10",
+            mecanismo_fijacion="EXPUESTA_TRASLAPE",
+            ancho_efectivo_m=Decimal("1.000"),
+            pendiente_minima_pct=Decimal("5.0"),
+            largo_min_fabricacion_m=Decimal("2.00"),
+            largo_max_plataforma_m=Decimal("12.00"),
+            largo_max_linea_m=Decimal("12.00"),
+            traslape_transversal_min_m=Decimal("0.200"),
+            desperdicio_default_pct=Decimal("6.0"),
+        ),
     ]
     for fam in familias:
         store.familias[fam.id] = fam
@@ -652,6 +755,80 @@ def create_default_metalia_store() -> MetaliaInMemoryStore:
             precio_base_m2_mxn=Decimal("330.00"),
             es_estandar_en_piso=True,
         ),
+        VarianteTecnica(
+            sku="GALVATECHO-26-28-15-PIN",
+            familia_id="FAM-GALVATECHO",
+            nombre_comercial="Panel Galvatecho 1.5'' Cal. 26/28 Pintro / Pintro",
+            espesor_pulg=Decimal("1.5"),
+            calibre_ext_int="26/28",
+            acabado="Pintro / Pintro",
+            color="Blanco / Arena",
+            peso_kg_m2=Decimal("10.52"),
+            valor_r=Decimal("10.00"),
+            factor_u=Decimal("0.100"),
+            precio_base_m2_mxn=Decimal("706.82"),
+            es_estandar_en_piso=True,
+        ),
+        VarianteTecnica(
+            sku="LOSACERO-25-CAL22-GAL",
+            familia_id="LOSACERO_25",
+            nombre_comercial="Entrepiso Metálico Losacero 25 Calibre 22 Galvanizada",
+            espesor_pulg=Decimal("2.5"),
+            calibre_ext_int="22",
+            acabado="Galvanizado G-90",
+            color="Zintro",
+            tipo_espuma="Sin Núcleo",
+            peso_kg_m2=Decimal("8.20"),
+            precio_base_m2_mxn=Decimal("347.68"),
+            es_estandar_en_piso=True,
+            clave_prod_serv_sat="30101700",
+            clave_unidad_sat="H87",
+        ),
+        VarianteTecnica(
+            sku="TR-101-CAL26-PNT",
+            familia_id="TR_101",
+            nombre_comercial="Lámina Acanalada TR-101 Calibre 26 Pintro",
+            espesor_pulg=None,
+            calibre_ext_int="26",
+            acabado="Pintro Poliéster Estándar / Fondo",
+            color="Blanco",
+            tipo_espuma="Sin Núcleo",
+            peso_kg_m2=Decimal("4.89"),
+            precio_base_m2_mxn=Decimal("217.10"),
+            es_estandar_en_piso=True,
+            clave_prod_serv_sat="30151500",
+            clave_unidad_sat="H87",
+        ),
+        VarianteTecnica(
+            sku="TR-72-CAL26-ZIN",
+            familia_id="TR_72",
+            nombre_comercial="Lámina Acanalada TR-72 Calibre 26 Zintro",
+            espesor_pulg=None,
+            calibre_ext_int="26",
+            acabado="Ternium Zintro",
+            color="Galvanizado",
+            tipo_espuma="Sin Núcleo",
+            peso_kg_m2=Decimal("4.89"),
+            precio_base_m2_mxn=Decimal("165.97"),
+            es_estandar_en_piso=True,
+            clave_prod_serv_sat="30151500",
+            clave_unidad_sat="H87",
+        ),
+        VarianteTecnica(
+            sku="ACRYLIT-G10-BLANCO",
+            familia_id="ACRYLIT_G10",
+            nombre_comercial="Lámina Translúcida Acrylit G10 Blanco Lechoso T-81",
+            espesor_pulg=None,
+            calibre_ext_int="1.4 mm",
+            acabado="GelCoat Anti-UV",
+            color="Blanco Lechoso",
+            tipo_espuma="100% Resina Acrílica Reforzada con Fibra de Vidrio",
+            peso_kg_m2=Decimal("2.50"),
+            precio_base_m2_mxn=Decimal("391.11"),
+            es_estandar_en_piso=True,
+            clave_prod_serv_sat="30151500",
+            clave_unidad_sat="H87",
+        ),
     ]
     for var in variantes:
         store.variantes[var.sku] = var
@@ -756,6 +933,41 @@ def create_default_metalia_store() -> MetaliaInMemoryStore:
             admite_corte=False,
             ubicacion_patio="PATIO-LAM-01",
             altura_estiba_m=Decimal("0.90"),
+        ),
+    ]
+
+    store.molduras_wizerp = [
+        MolduraWizERP(
+            codigo_wizerp="CIIPFC2215305152",
+            descripcion="CANAL INFERIOR INTERIOR 1 1/2\"",
+            desarrollo_cm=Decimal("15.1"),
+            tiras_por_lamina=8,
+            costo_maquila_pza=Decimal("55.00"),
+            costo_lamina_c22=Decimal("756.06"),
+        ),
+        MolduraWizERP(
+            codigo_wizerp="CIIPFC2220305174",
+            descripcion="CANAL INFERIOR INTERIOR 2\"",
+            desarrollo_cm=Decimal("17.4"),
+            tiras_por_lamina=7,
+            costo_maquila_pza=Decimal("55.00"),
+            costo_lamina_c22=Decimal("756.06"),
+        ),
+        MolduraWizERP(
+            codigo_wizerp="TGPFC24305244",
+            descripcion="TAPAGOTERO STD",
+            desarrollo_cm=Decimal("24.4"),
+            tiras_por_lamina=5,
+            costo_maquila_pza=Decimal("70.00"),
+            costo_lamina_c24=Decimal("564.64"),
+        ),
+        MolduraWizERP(
+            codigo_wizerp="CABALLETE_LISO",
+            descripcion="CABALLETE CENTRAL CUMBRERA 3.05M",
+            desarrollo_cm=Decimal("40.0"),
+            tiras_por_lamina=3,
+            costo_maquila_pza=Decimal("80.00"),
+            costo_lamina_c22=Decimal("756.06"),
         ),
     ]
 
