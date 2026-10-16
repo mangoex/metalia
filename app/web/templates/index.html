@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metalia Querétaro — Sistema CPQ, Explosión BOM, Inventario en Piso y Carta Porte 3.1</title>
+  <meta name="description" content="Distribuidora e instaladora de panel aislado Multytecho, Galvatecho, Multymuro y lámina KR-18/R-101 en Querétaro y el Bajío. Cotizador geométrico e inventario en piso en vivo." />
+  <link rel="stylesheet" href="/static/css/tokens.css" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
+
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">M</div>
+        <div>
+          <h1 class="brand-title">METALIA-MS QUERÉTARO</h1>
+          <p class="brand-subtitle">Ingeniería CPQ · Panel Aislado · Instalación · Inventario Dimensional en Piso</p>
+        </div>
+      </div>
+      <nav class="nav-pills" aria-label="Navegación del Sistema CPQ">
+        <a href="#cotizador-cpq" class="nav-link">1. Cotizador CPQ Dual</a>
+        <a href="#inventario-piso" class="nav-link">2. Existencias en Piso Querétaro</a>
+        <a href="#catalogo-tecnico" class="nav-link">3. Catálogo Paramétrico</a>
+        <a href="#backoffice-almacen" class="nav-link">4. Cortes, Retazos y Carta Porte 3.1</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" class="main-container" role="main">
+    <!-- Hero Banner Industrial -->
+    <section class="hero-banner" aria-labelledby="hero-heading">
+      <div>
+        <span class="hero-kicker">Corredor Industrial del Bajío · Querétaro</span>
+        <h2 id="hero-heading" class="hero-title">
+          Cotizador Geométrico CPQ, Explosión de Materiales (BOM) e Inventario Dimensional en Tiempo Real
+        </h2>
+        <p class="hero-desc">
+          Cuantificación exacta de cubiertas y fachadas industriales con corrección trigonométrica por pendiente
+          (<code>f_p = √(1 + p²)</code>), partición longitudinal de vertientes mayores a 12.00 m con traslapes de norma,
+          selección paramétrica de pijas (<code>espesor + 2.5''</code>), clips Cal. 18, tapajuntas y pre-validación del
+          <strong>Complemento Carta Porte 3.1 SAT</strong>.
+        </p>
+      </div>
+      <div class="kpi-strip" aria-label="Indicadores Operativos de Metalia">
+        <div class="kpi-card">
+          <div class="kpi-label">Ancho Efectivo Techo / Muro</div>
+          <div class="kpi-value">1.000m / 1.067m</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Vigencia Precios Acero</div>
+          <div class="kpi-value">72h Hábiles</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Esquema Comercial B2B</div>
+          <div class="kpi-value">50% Anticipo</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cumplimiento Federal</div>
+          <div class="kpi-value">Carta Porte 3.1</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Módulo 2 y 3: Cotizador CPQ Dual (Modo Nave Industrial vs Modo Despiece Directo) -->
+    <section id="cotizador-cpq" class="section-card" aria-labelledby="cpq-title">
+      <div class="section-header">
+        <div>
+          <h2 id="cpq-title" class="section-title">Motor Cotizador CPQ Dual y Explosión Automática de Obra (BOM)</h2>
+          <p class="section-subtitle">
+            Alterne entre el <strong>Asistente Geométrico de Nave Industrial</strong> (con dibujo SVG en vivo) y la
+            <strong>Captura Directa por Despiece</strong> verificando medidas en piso en Querétaro.
+          </p>
+        </div>
+        <div class="mode-tabs" role="tablist" aria-label="Modo de Cotización">
+          <button
+            id="tab-mode-nave"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            class="mode-tab active"
+            onclick="switchCpqMode('nave')"
+          >
+            Modo B: Asistente de Nave / Cubierta
+          </button>
+          <button
+            id="tab-mode-direct"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            class="mode-tab"
+            onclick="switchCpqMode('direct')"
+          >
+            Modo A: Despiece Directo por Largo
+          </button>
+        </div>
+      </div>
+
+      <!-- Datos Comerciales Comunes del Prospecto -->
+      <div class="form-grid" style="margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--color-border);">
+        <div class="form-group">
+          <label for="cli-nombre">Nombre del Ingeniero / Residente / Comprador</label>
+          <input id="cli-nombre" type="text" value="Ing. Roberto Méndez" required />
+        </div>
+        <div class="form-group">
+          <label for="cli-empresa">Empresa / Constructora</label>
+          <input id="cli-empresa" type="text" value="Constructora Industrial del Bajío S.A. de C.V." required />
+        </div>
+        <div class="form-group">
+          <label for="cli-whatsapp">WhatsApp (Entrega Instantánea PDF)</label>
+          <input id="cli-whatsapp" type="text" value="4421234567" required />
+        </div>
+        <div class="form-group">
+          <label for="cli-email">Correo Electrónico</label>
+          <input id="cli-email" type="email" value="rmendez@constructorabajio.mx" required />
+        </div>
+        <div class="form-group">
+          <label for="cli-cp">Código Postal de Obra (Cálculo de Flete y Carta Porte)</label>
+          <input id="cli-cp" type="text" value="76220" maxlength="5" required />
+        </div>
+        <div class="form-group">
+          <label for="cli-entrega">Modalidad Logística</label>
+          <select id="cli-entrega">
+            <option value="FLETE_OBRA" selected>Flete Especializado a Obra (Carretera Federal / Local)</option>
+            <option value="LAB_PATIO_QRO">Entrega LAB Patio Metalia Querétaro (Sin Flete)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- PANEL MODO B: ASISTENTE GEOMÉTRICO DE NAVE INDUSTRIAL -->
+      <div id="panel-mode-nave" class="cpq-grid">
+        <form onsubmit="generateFormalNaveQuote(event)" aria-label="Formulario Geométrico de Nave Industrial">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="nave-alcance">Alcance Constructivo</label>
+              <select id="nave-alcance" onchange="previewNaveCalculation()">
+                <option value="NAVE_COMPLETA" selected>Nave Completa (Cubierta + Muros)</option>
+                <option value="SOLO_TECHO">Solo Techo / Cubierta</option>
+                <option value="SOLO_MUROS">Solo Muros / Fachadas</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="nave-aguas">Geometría de Techumbre</label>
+              <select id="nave-aguas" onchange="previewNaveCalculation()">
+                <option value="2" selected>Dos Aguas Simétricas</option>
+                <option value="1">Una Sola Agua (1 Vertiente)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="nave-largo">Largo de la Nave L (m)</label>
+              <input id="nave-largo" type="number" step="0.1" min="3" value="40.0" oninput="previewNaveCalculation()" />
+            </div>
+            <div class="form-group">
+              <label for="nave-ancho">Ancho Claro W (m)</label>
+              <input id="nave-ancho" type="number" step="0.1" min="3" value="25.0" oninput="previewNaveCalculation()" />
+            </div>
+            <div class="form-group">
+              <label for="nave-alto-muro">Altura de Muro H (m)</label>
+              <input id="nave-alto-muro" type="number" step="0.1" min="0" value="6.0" oninput="previewNaveCalculation()" />
+            </div>
+            <div class="form-group">
+              <label for="nave-pendiente">Pendiente de Cubierta (%)</label>
+              <input id="nave-pendiente" type="number" step="0.5" min="1" max="60" value="5.0" oninput="previewNaveCalculation()" />
+            </div>
+            <div class="form-group">
+              <label for="nave-huecos">Área de Vanos / Portones en Muro (m²)</label>
+              <input id="nave-huecos" type="number" step="1" min="0" value="24.0" oninput="previewNaveCalculation()" />
+            </div>
+            <div class="form-group">
+              <label for="nave-desperdicio">Factor de Desperdicio (%)</label>
+              <input id="nave-desperdicio" type="number" step="1" min="0" max="25" value="6.0" oninput="previewNaveCalculation()" />
+            </div>
+            <div class="form-group full-width">
+              <label for="nave-sku-cubierta">Sistema de Cubierta (Ancho Efectivo 1.000 m / 1.016 m / 0.914 m)</label>
+              <select id="nave-sku-cubierta" onchange="previewNaveCalculation()">
+                {% for var in variantes if var.familia_id != 'FAM-MULTYMURO' %}
+                <option value="{{ var.sku }}">{{ var.nombre_comercial }} — ${{ var.precio_base_m2_mxn }}/m²</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <label for="nave-sku-muro">Sistema de Muro / Fachada (Ancho Efectivo 1.067 m)</label>
+              <select id="nave-sku-muro" onchange="previewNaveCalculation()">
+                {% for var in variantes if var.familia_id == 'FAM-MULTYMURO' %}
+                <option value="{{ var.sku }}">{{ var.nombre_comercial }} — ${{ var.precio_base_m2_mxn }}/m²</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <div class="checkbox-row">
+                <label class="checkbox-item">
+                  <input id="chk-bom" type="checkbox" checked />
+                  Incluir Kit Completo BOM (Pijas, Clips, Selladores y Remates)
+                </label>
+                <label class="checkbox-item">
+                  <input id="chk-polin" type="checkbox" checked />
+                  Incluir Estructura Secundaria (Polín Monten C-200)
+                </label>
+                <label class="checkbox-item">
+                  <input id="chk-instalacion" type="checkbox" checked />
+                  Incluir Mano de Obra de Instalación Metalia
+                </label>
+              </div>
+            </div>
+            <div class="form-group full-width">
+              <button type="submit" class="btn btn-primary" style="width: 100%;">
+                Generar Cotización Formal CPQ (Folio + Vigencia 72h + WhatsApp)
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Vista Derecha: Esquema SVG y Resumen de Ingeniería en Tiempo Real -->
+        <div>
+          <div id="slope-alert-banner" class="alert-banner badge-stock" role="status" aria-live="polite">
+            Pendiente del 5.0% cumple norma técnica (>= 5%).
+          </div>
+
+          <div class="svg-canvas-box">
+            <svg
+              id="nave-svg-canvas"
+              viewBox="0 0 680 220"
+              width="100%"
+              height="auto"
+              role="img"
+              aria-label="Diagrama proporcional en tiempo real de la nave industrial, vertientes y cortes longitudinales"
+            ></svg>
+          </div>
+
+          <div class="kpi-strip" style="margin-bottom: 1rem;">
+            <div class="kpi-card">
+              <div class="kpi-label">Vertiente y Partición (&gt;12m)</div>
+              <div id="res-lv" class="kpi-value" style="font-size: 0.95rem;">12.52 m</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Despiece Cubierta</div>
+              <div id="res-piezas-cub" class="kpi-value" style="font-size: 0.95rem;">160 pzas</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Superficie Cubierta</div>
+              <div id="res-area-cub" class="kpi-value" style="font-size: 0.95rem;">1001.25 m²</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Despiece Muros (1.067m)</div>
+              <div id="res-piezas-muro" class="kpi-value" style="font-size: 0.95rem;">119 pzas</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Aislamiento Térmico</div>
+              <div id="res-valor-r" class="kpi-value" style="font-size: 0.95rem;">R-10.00</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Peso Total Paneles</div>
+              <div id="res-peso-ton" class="kpi-value" style="font-size: 0.95rem;">19.0 Ton</div>
+            </div>
+          </div>
+
+          <h3 style="font-size: 0.95rem; margin: 0 0 0.5rem 0;">
+            Explosión Automática de Accesorios, Fijación y Remates (BOM — RN-06 a RN-08)
+          </h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Regla</th>
+                  <th>Accesorio / Moldura / Tornillería</th>
+                  <th>Cant.</th>
+                  <th>Peso</th>
+                  <th>Importe</th>
+                </tr>
+              </thead>
+              <tbody id="bom-preview-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL MODO A: COTIZADOR DIRECTO POR DESPIECE -->
+      <div id="panel-mode-direct" class="hidden">
+        <form onsubmit="generateDirectQuote(event)" aria-label="Formulario de Despiece Directo">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="dir-sku">Producto / Variante Técnica</label>
+              <select id="dir-sku" onchange="evaluateDirectDespieceStock()">
+                {% for var in variantes %}
+                <option value="{{ var.sku }}" {% if var.sku == 'MULTYMURO-15-2626-ARENA' %}selected{% endif %}>
+                  {{ var.nombre_comercial }} (${{ var.precio_base_m2_mxn }}/m²)
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="dir-piezas">Cantidad de Piezas</label>
+              <input id="dir-piezas" type="number" min="1" value="20" oninput="evaluateDirectDespieceStock()" />
+            </div>
+            <div class="form-group">
+              <label for="dir-largo">Largo Exacto por Pieza (m) [2.00 m a 14.63 m]</label>
+              <input id="dir-largo" type="number" step="0.05" min="2.0" max="14.63" value="6.00" oninput="evaluateDirectDespieceStock()" />
+            </div>
+            <div class="form-group" style="justify-content: flex-end;">
+              <label class="checkbox-item">
+                <input id="dir-chk-instalacion" type="checkbox" />
+                Agregar Mano de Obra de Instalación por m²
+              </label>
+            </div>
+          </div>
+          <div id="direct-eval-result" class="section-card" style="margin: 1rem 0; padding: 1rem; background: var(--color-bg-elevated);"></div>
+          <button type="submit" class="btn btn-primary">
+            Generar Cotización por Despiece Directo (Folio CPQ)
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Sección Dinámica: Cotización Formal Generada, Pago de Anticipo 50% y Timbrado Carta Porte 3.1 -->
+    <section id="active-quote-section" class="section-card hidden" aria-labelledby="active-quote-heading">
+      <div class="section-header">
+        <div>
+          <h2 id="active-quote-heading" class="section-title">
+            Folio de Cotización Formal CPQ: <span id="q-folio" class="mono" style="color: var(--color-accent-primary);"></span>
+          </h2>
+          <p id="q-vigencia" class="section-subtitle"></p>
+        </div>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <span id="q-estado" class="badge badge-stock">ENVIADA</span>
+          <a id="q-whatsapp-link" href="#" target="_blank" rel="noopener" class="btn btn-success">
+            Enviar Propuesta Formal por WhatsApp
+          </a>
+          <button type="button" class="btn btn-primary" onclick="payAdvance50ForActiveQuote()">
+            Registrar Pago Anticipo 50% (Reservar Stock en Piso)
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-strip" style="margin-bottom: 1.25rem;">
+        <div class="kpi-card">
+          <div class="kpi-label">Subtotal Neto</div>
+          <div id="q-subtotal" class="kpi-value"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total IVA Incluido (16%)</div>
+          <div id="q-total" class="kpi-value" style="color: var(--color-accent-primary);"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Anticipo 50% Requerido</div>
+          <div id="q-anticipo" class="kpi-value" style="color: #34d399;"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Peso Bruto Total (Carta Porte)</div>
+          <div id="q-peso-kg" class="kpi-value"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Unidad Logística Sugerida</div>
+          <div id="q-transporte" class="kpi-value" style="font-size: 0.85rem;"></div>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-bottom: 1.5rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>Subsistema</th>
+              <th>Descripción y Estado de Suministro</th>
+              <th>Cantidad</th>
+              <th>Peso Exacto (kg)</th>
+              <th>Importe MXN</th>
+            </tr>
+          </thead>
+          <tbody id="q-partidas-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Pre-Validador de Complemento Carta Porte 3.1 SAT -->
+      <div style="border-top: 1px solid var(--color-border); padding-top: 1.25rem;">
+        <h3 style="margin: 0 0 0.75rem 0;">Pre-Validador Fiscal y Manifiesto Complemento Carta Porte 3.1 (SAT)</h3>
+        <div class="form-grid" style="margin-bottom: 1rem;">
+          <div class="form-group">
+            <label for="cp-modalidad">Modalidad Fiscal SAT</label>
+            <select id="cp-modalidad">
+              <option value="FLOTA_PROPIA_TRASLADO" selected>CFDI de Traslado ($0 MXN — Flota Propia Metalia)</option>
+              <option value="FLETERA_TERCERO_INGRESO">CFDI de Ingreso (Fletera Tercera con Cobro)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="cp-placa">Placa Vehículo Motriz</label>
+            <input id="cp-placa" type="text" value="QRO901X" />
+          </div>
+          <div class="form-group">
+            <label for="cp-operador">Nombre del Operador</label>
+            <input id="cp-operador" type="text" value="Miguel Ángel Torres" />
+          </div>
+          <div class="form-group" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="generateCartaPorteForActiveQuote()">
+              Generar Payload Pre-Validado Carta Porte 3.1 (IdCCP CCC...)
+            </button>
+          </div>
+        </div>
+        <pre id="carta-porte-json-output" class="json-viewer">Presione "Generar Payload Pre-Validado Carta Porte 3.1" para validar PesoBrutoTotal == Σ PesoEnKg y generar el IdCCP RFC 4122.</pre>
+      </div>
+    </section>
+
+    <!-- Módulo 1 y 4: Existencias en Piso Hoy en Querétaro -->
+    <section id="inventario-piso" class="section-card" aria-labelledby="inv-title">
+      <div class="section-header">
+        <div>
+          <h2 id="inv-title" class="section-title">Existencias en Piso Hoy en Querétaro (Inventario Dimensional en Vivo)</h2>
+          <p class="section-subtitle">
+            Control real por matriz <code>[SKU + Espesor + Calibre + Color + Largo en metros]</code> con límite de seguridad industrial de estiba &le; 1.50 m.
+          </p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID Lote</th>
+              <th>SKU Variante</th>
+              <th>Largo Físico</th>
+              <th>Disponibles</th>
+              <th>Reservadas (Anticipo 50%)</th>
+              <th>Clasificación de Lote</th>
+              <th>Ubicación Patio y Estiba</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-live-tbody">
+            {% for lot in inventario_piso %}
+            <tr>
+              <td class="mono">{{ lot.id_lote }}</td>
+              <td><strong>{{ lot.sku }}</strong></td>
+              <td class="mono"><strong>{{ lot.largo_pieza_m }} m</strong></td>
+              <td class="mono">{{ lot.cantidad_piezas_disponibles }} pzas</td>
+              <td class="mono">{{ lot.cantidad_piezas_reservadas }} pzas</td>
+              <td>
+                {% if lot.es_retazo %}
+                <span class="badge badge-cut">Retazo Comercializable</span>
+                {% elif lot.admite_corte %}
+                <span class="badge badge-stock">Hoja Maestra (Admite Corte)</span>
+                {% else %}
+                <span class="badge badge-plant">Medida Estándar Piso</span>
+                {% endif %}
+              </td>
+              <td class="mono">{{ lot.ubicacion_patio }} (Estiba {{ lot.altura_estiba_m }} m &le; 1.50 m)</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Módulo 1: Catálogo Técnico Paramétrico -->
+    <section id="catalogo-tecnico" class="section-card" aria-labelledby="cat-title">
+      <div class="section-header">
+        <div>
+          <h2 id="cat-title" class="section-title">Catálogo Técnico Paramétrico (Ternium / Metecno)</h2>
+          <p class="section-subtitle">
+            Propiedades físicas, geométricas y termodinámicas verificadas por familia constructiva.
+          </p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Descripción Comercial</th>
+              <th>Espesor / Calibre</th>
+              <th>Peso (kg/m²)</th>
+              <th>Valor R</th>
+              <th>Factor U</th>
+              <th>Precio Base (m²)</th>
+              <th>Política de Inventario</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for var in variantes %}
+            <tr>
+              <td class="mono">{{ var.sku }}</td>
+              <td><strong>{{ var.nombre_comercial }}</strong></td>
+              <td class="mono">{{ var.espesor_pulg if var.espesor_pulg else 'Lámina Simple' }}'' · Cal. {{ var.calibre_ext_int }}</td>
+              <td class="mono">{{ var.peso_kg_m2 }} kg/m²</td>
+              <td class="mono">R-{{ var.valor_r }}</td>
+              <td class="mono">{{ var.factor_u }}</td>
+              <td class="mono">${{ var.precio_base_m2_mxn }} MXN</td>
+              <td>
+                {% if var.es_estandar_en_piso %}
+                <span class="badge badge-stock">Alta Rotación en Piso QRO</span>
+                {% else %}
+                <span class="badge badge-plant">Fabricación en Planta (Lote mín. {{ var.lote_minimo_planta_m2 }} m²)</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Módulo 5: Back-Office de Órdenes de Corte y Generación Automática de Retazos -->
+    <section id="backoffice-almacen" class="section-card" aria-labelledby="cut-title">
+      <div class="section-header">
+        <div>
+          <h2 id="cut-title" class="section-title">Back-Office de Patio Querétaro: Órdenes de Corte sobre Hoja Maestra y Control de Retazos (HU-05)</h2>
+          <p class="section-subtitle">
+            Cuando se corta una hoja maestra (ej. 12.20 m a 7.50 m), el sistema descuenta la hoja madre e ingresa automáticamente al inventario el retazo comercializable de 4.70 m si es &ge; 2.00 m.
+          </p>
+        </div>
+      </div>
+      <form onsubmit="runWarehouseCutOrder(event)" class="form-grid" aria-label="Formulario de Orden de Corte en Patio">
+        <div class="form-group">
+          <label for="cut-lote-id">Seleccionar Lote de Hoja Maestra en Patio</label>
+          <select id="cut-lote-id">
+            {% for lot in inventario_piso if lot.admite_corte %}
+            <option value="{{ lot.id_lote }}" {% if lot.id_lote == 'LOTE-QRO-0004' %}selected{% endif %}>
+              {{ lot.id_lote }} — {{ lot.sku }} ({{ lot.largo_pieza_m }} m | Disp: {{ lot.cantidad_piezas_disponibles }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cut-cantidad">Cantidad de Hojas a Cortar</label>
+          <input id="cut-cantidad" type="number" min="1" value="5" required />
+        </div>
+        <div class="form-group">
+          <label for="cut-largo">Largo de Corte Solicitado (m)</label>
+          <input id="cut-largo" type="number" step="0.05" min="2.0" value="7.50" required />
+        </div>
+        <div class="form-group" style="justify-content: flex-end;">
+          <button type="submit" class="btn btn-primary">
+            Confirmar Orden de Corte y Registrar Retazo
+          </button>
+        </div>
+      </form>
+      <div id="cut-order-feedback" class="alert-banner hidden" style="margin-top: 1rem;" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script src="/static/js/cpq_visualizer.js"></script>
+</body>
+</html>
