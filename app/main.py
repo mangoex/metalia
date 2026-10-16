@@ -37,6 +37,10 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
 
+    @app.get("/health")
+    def health_check():
+        return {"status": "ok", "service": "metalia-cpq"}
+
     @app.get("/", response_class=HTMLResponse)
     def render_portal(request: Request):
         store = request.app.state.store
